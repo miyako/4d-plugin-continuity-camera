@@ -1,0 +1,11 @@
+{
+    "name": "Continuity Camera",
+    "id": 20000,
+    "commands": [
+        {
+            "theme": "Continuity Camera",
+            "syntax": "Continuity camera menu(&J):J",
+            "threadSafe": false
+        }
+    ]
+}
