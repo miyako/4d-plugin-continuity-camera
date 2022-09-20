@@ -6,6 +6,15 @@ Invoke macOS 10.14 Continuity Camera feature for image import
 [![license](https://img.shields.io/github/license/miyako/4d-plugin-continuity-camera)](LICENSE)
 ![downloads](https://img.shields.io/github/downloads/miyako/4d-plugin-continuity-camera/total)
 
+**Important**: `2.0.0` breaks compatibility.
+
+new `status` object:
+
+* status.success: boolean
+* status.document: picture (PDF document, if available)
+* status.images[]: collection of TIFF pictures, typically in 3 resolutions
+
+
 ### Example
 
 ```4d
@@ -17,8 +26,25 @@ $options.y:=$y
 
 $status:=Continuity camera menu ($options)
 
+var $image : Picture
+
+Form.image:=$image*0
+
 If ($status.success)
-	Form.image:=$status.image
+	
+	For each ($image; $status.images)
+		Form.image:=Form.image/$image
+	End for each 
+	
+	If ($status.document#Null)
+		$folder:=Folder(Temporary folder; fk platform path).folder(Generate UUID)
+		$folder.create()
+		$file:=$folder.file("scan.pdf")
+		PICTURE TO BLOB($status.document; $data; ".pdf")
+		$file.setContent($data)
+		SHOW ON DISK($file.platformPath)
+	End if 
+	
 End if 
 ```
 
