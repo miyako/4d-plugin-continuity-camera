@@ -1,3 +1,22 @@
-﻿{
-	"editors": []
+{
+	"editors": [
+		{
+			"type": "form",
+			"id": 218,
+			"formName": "TEST"
+		},
+		{
+			"type": "method",
+			"id": 2147483638,
+			"codeDescriptor": {
+				"type": 2,
+				"formName": "TEST",
+				"objectName": "Button",
+				"methodPath": "/SOURCES/Forms/TEST/ObjectMethods/Button.4dm"
+			}
+		},
+		{
+			"type": "explorer"
+		}
+	]
 }

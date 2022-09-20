@@ -17,6 +17,7 @@
 #import <Cocoa/Cocoa.h>
 #import <objc/runtime.h>
 #import <AppKit/AppKit.h>
+#include "tiffio.h"
 
 #pragma mark -
 

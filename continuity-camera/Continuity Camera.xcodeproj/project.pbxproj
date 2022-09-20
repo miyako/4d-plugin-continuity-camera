@@ -17,6 +17,9 @@
 		D120937F13534DCC00A72CAA /* 4DPlugin-Continuity-Camera.h in Headers */ = {isa = PBXBuildFile; fileRef = D120937E13534DCC00A72CAA /* 4DPlugin-Continuity-Camera.h */; };
 		D130064F12F02D9700702C0E /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D130064E12F02D9700702C0E /* Cocoa.framework */; };
 		D13116A91A03ACB700DE1322 /* 4DPluginAPI.c in Sources */ = {isa = PBXBuildFile; fileRef = D13116A81A03ACB700DE1322 /* 4DPluginAPI.c */; settings = {COMPILER_FLAGS = "-Wno-multichar"; }; };
+		D1331B6428D97053003F529F /* libtiff.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D1331B6328D97053003F529F /* libtiff.a */; };
+		D1331B6728D975C3003F529F /* libjpeg.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D1331B6528D975C3003F529F /* libjpeg.a */; };
+		D1331B6828D975C3003F529F /* libz.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D1331B6628D975C3003F529F /* libz.a */; };
 		D134D4AC1A030BA0008D14EF /* manifest.json in CopyFiles */ = {isa = PBXBuildFile; fileRef = D134D4A91A030B06008D14EF /* manifest.json */; };
 		D1CB0BE926E1901F0035E88D /* 4DPlugin-JSON.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D1CB0BE726E1901F0035E88D /* 4DPlugin-JSON.cpp */; };
 		D1CB0BEA26E1901F0035E88D /* 4DPlugin-JSON.h in Headers */ = {isa = PBXBuildFile; fileRef = D1CB0BE826E1901F0035E88D /* 4DPlugin-JSON.h */; };
@@ -48,6 +51,9 @@
 		D120937E13534DCC00A72CAA /* 4DPlugin-Continuity-Camera.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "4DPlugin-Continuity-Camera.h"; sourceTree = "<group>"; };
 		D130064E12F02D9700702C0E /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 		D13116A81A03ACB700DE1322 /* 4DPluginAPI.c */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 4; path = 4DPluginAPI.c; sourceTree = "<group>"; };
+		D1331B6328D97053003F529F /* libtiff.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiff.a; path = a/libtiff.a; sourceTree = "<group>"; };
+		D1331B6528D975C3003F529F /* libjpeg.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libjpeg.a; path = a/libjpeg.a; sourceTree = "<group>"; };
+		D1331B6628D975C3003F529F /* libz.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libz.a; path = a/libz.a; sourceTree = "<group>"; };
 		D134D4A91A030B06008D14EF /* manifest.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
 		D14D10DD1A03A8A5008B3411 /* constants.xlf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = constants.xlf; sourceTree = "<group>"; };
 		D1CB0BE726E1901F0035E88D /* 4DPlugin-JSON.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 4; name = "4DPlugin-JSON.cpp"; path = "support/4DPlugin-JSON.cpp"; sourceTree = "<group>"; };
@@ -59,6 +65,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D1331B6728D975C3003F529F /* libjpeg.a in Frameworks */,
+				D1331B6828D975C3003F529F /* libz.a in Frameworks */,
+				D1331B6428D97053003F529F /* libtiff.a in Frameworks */,
 				D130064F12F02D9700702C0E /* Cocoa.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -141,6 +150,9 @@
 		D16FBB3C22A4C07E008F0416 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D1331B6528D975C3003F529F /* libjpeg.a */,
+				D1331B6628D975C3003F529F /* libz.a */,
+				D1331B6328D97053003F529F /* libtiff.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -254,7 +266,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if test \"$CONFIGURATION\" == 'Deployment'; then\n\n    USER_NAME=keisuke.miyako@4d.com\n    UUID=`uuidgen | tr -d - | tr -d '\\n' | tr '[:upper:]' '[:lower:]'`\n    DEVELOPER_ID=`security find-identity -p codesigning -v | egrep 'Developer ID Application[^\"]+' -o`\n    PRODUCT_PATH=\"$CODESIGNING_FOLDER_PATH\"\n    \n    #clean\n    xattr -cr \"$PRODUCT_PATH\"\n    codesign --remove-signature \"$PRODUCT_PATH\"\n    \n    #sign\n    codesign --verbose --deep --timestamp --force --sign \"$DEVELOPER_ID\" \"$PRODUCT_PATH\"\n    \n    #archive\n    DMG_PATH=\"$PROJECT_DIR/$PRODUCT_NAME.dmg\"\n    ZIP_PATH=\"$PROJECT_DIR/$PRODUCT_NAME.zip\" #for windows\n    rm -f \"$DMG_PATH\"\n    hdiutil create -format UDBZ -plist -srcfolder \"$PRODUCT_PATH\" \"$DMG_PATH\"\n    rm -f \"$ZIP_PATH\"\n    ditto -c -k --keepParent \"$PRODUCT_PATH\" \"$ZIP_PATH\"\n    \n    # must staple the same dmg that was submitted for notarisation\n    # to staple the bundle inside the dmg too,\n    # one must:\n    # sign the bundle\n    # archive the bundle and notarise the dmg\n    # staple the bundle\n    # archive the bundle and notarise the dmg again\n    # staple the dmg\n    # here, we just staple the dmg. it should be sufficient    \n    \n    #round 2\n    echo \"# staple only the dmg\"\n    echo \"\\r\"\n    echo \"xcrun stapler staple \\\"$DMG_PATH\\\"\"\n    echo \"\\r\"\n    \n    #round 3 (optional)\n    echo \"# staple the bundle and the dmg\"\n    echo \"\\r\"\n    echo \"xcrun stapler staple \\\"$PRODUCT_PATH\\\"\"\n    echo \"rm -f \\\"$DMG_PATH\\\"\"\n    echo \"hdiutil create -format UDBZ -plist -srcfolder  \\\"$PRODUCT_PATH\\\" \\\"$DMG_PATH\\\" \"\n    echo \"xcrun altool --notarize-app --file \\\"$DMG_PATH\\\" --username \\\"$USER_NAME\\\" --password \\\"@keychain:altool\\\" --primary-bundle-id $PRODUCT_BUNDLE_IDENTIFIER.$UUID\"\n    echo \"\\r\"\n    \n    #round 1\n    xcrun altool --notarize-app --file \"$DMG_PATH\" --username \"$USER_NAME\" --password \"@keychain:altool\" --primary-bundle-id $PRODUCT_BUNDLE_IDENTIFIER.$UUID\n    \n    #for round 3    \n    UUID=`uuidgen | tr -d - | tr -d '\\n' | tr '[:upper:]' '[:lower:]'`\nelse\n    echo \"No notarization performed as this is not a release build.\"\nfi\n";
+			shellScript = "if test \"$CONFIGURATION\" == 'Deployment'; then\n\n    USER_NAME=keisuke.miyako@4d.com\n    UUID=`uuidgen | tr -d - | tr -d '\\n' | tr '[:upper:]' '[:lower:]'`\n    DEVELOPER_ID=`security find-identity -p codesigning -v | egrep 'Developer ID Application[^\"]+' -o`\n    PRODUCT_PATH=\"$CODESIGNING_FOLDER_PATH\"\n    \n    #clean\n    xattr -cr \"$PRODUCT_PATH\"\n    codesign --remove-signature \"$PRODUCT_PATH\"\n    \n    #sign\n    codesign --verbose --deep --timestamp --force --sign \"$DEVELOPER_ID\" \"$PRODUCT_PATH\"\n    \n    #archive\n    DMG_PATH=\"$PROJECT_DIR/$PRODUCT_NAME.dmg\"\n    ZIP_PATH=\"$PROJECT_DIR/$PRODUCT_NAME.zip\" #for windows\n    rm -f \"$DMG_PATH\"\n    hdiutil create -format UDBZ -plist -srcfolder \"$PRODUCT_PATH\" \"$DMG_PATH\"\n    rm -f \"$ZIP_PATH\"\n    ditto -c -k --keepParent \"$PRODUCT_PATH\" \"$ZIP_PATH\"\n    \n    xcrun notarytool submit \"$ZIP_PATH\" --keychain-profile \"notarytool\" --wait\n    xcrun notarytool submit \"$DMG_PATH\" --keychain-profile \"notarytool\" --wait\n        \n    xcrun stapler staple \"$DMG_PATH\"\n\nelse\n    echo \"No notarization performed as this is not a release build.\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -319,6 +331,7 @@
 				);
 				LIBRARY_STYLE = Bundle;
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.1.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -370,6 +383,7 @@
 				);
 				LIBRARY_STYLE = Bundle;
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.1.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -419,6 +433,7 @@
 				);
 				LIBRARY_STYLE = Bundle;
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.1.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

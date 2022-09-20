@@ -198,6 +198,304 @@ static void doIt(continuity_camera_menu_ctx *ctx) {
 
 }
 
+#pragma mark read
+
+typedef struct
+{
+    const uint8_t *ptr;
+    tsize_t len;
+    tsize_t pos;
+} tiff_src;
+
+typedef struct
+{
+    std::vector<uint8_t> *buf;
+    tsize_t pos;
+} tiff_dst;
+
+int tiff_Close(thandle_t)
+{
+    return 0;
+};
+
+int tiff_Map(thandle_t, tdata_t*, toff_t*)
+{
+    return 0;
+};
+
+void tiff_Unmap(thandle_t, tdata_t, toff_t)
+{
+    return;
+};
+
+toff_t tiff_ReadSize(thandle_t h)
+{
+    tiff_src *tiff_input = (tiff_src *)h;
+    
+    return tiff_input->len;
+};
+
+toff_t tiff_ReadSeek(thandle_t h, toff_t pos, int whence)
+{
+    tiff_src *tiff_input = (tiff_src *)h;
+    
+    switch (whence)
+    {
+  case SEEK_SET:
+            tiff_input->pos = pos;
+            break;
+  case SEEK_CUR:
+            tiff_input->pos += pos;
+            break;
+  case SEEK_END:
+            tiff_input->pos = tiff_input->len + (pos > 0 ? 0 : pos);
+            break;
+    }
+    
+    return tiff_input->pos;
+};
+
+tsize_t tiff_Read(thandle_t h, tdata_t buf, tsize_t size)
+{
+    tiff_src *tiff_input = (tiff_src *)h;
+    
+    tsize_t remaining = tiff_input->len - tiff_input->pos;
+    tsize_t len = size > remaining ? remaining : size;
+    if(len)
+    {
+        const uint8_t *ptr = tiff_input->ptr + tiff_input->pos;
+        memcpy(buf, ptr, len);
+        tiff_input->pos += len;
+    }
+
+    return (tsize_t)len;
+};
+
+tsize_t tiff_Write(thandle_t h, tdata_t bytes, tsize_t size)
+{
+    tiff_dst *tiff_output = (tiff_dst *)h;
+    
+    std::vector<uint8_t> *buf = tiff_output->buf;
+    
+    tsize_t len = buf->size();
+
+    tsize_t need = tiff_output->pos + size;
+    
+    if(need > len)
+    {
+        buf->resize(need);
+    }
+    
+    uint8_t *ptr = (uint8_t *)&buf->at(tiff_output->pos);
+    memcpy(ptr, bytes, size);
+    
+    return (tsize_t)size;
+};
+
+toff_t tiff_WriteSize(thandle_t h)
+{
+    tiff_dst *tiff_output = (tiff_dst *)h;
+    
+    return tiff_output->buf->size();
+};
+
+toff_t tiff_WriteSeek(thandle_t h, toff_t pos, int whence)
+{
+    tiff_dst *tiff_output = (tiff_dst *)h;
+    
+    switch (whence)
+    {
+  case SEEK_SET:
+            tiff_output->pos = pos;
+            break;
+  case SEEK_CUR:
+            tiff_output->pos += pos;
+            break;
+  case SEEK_END:
+            tiff_output->pos = tiff_output->buf->size() + (pos > 0 ? 0 : pos);
+            break;
+    }
+    
+    return tiff_output->pos;
+};
+
+tsize_t tiff_WriteRead(thandle_t h, tdata_t buf, tsize_t size)
+{
+    tiff_dst *tiff_output = (tiff_dst *)h;
+    
+    tsize_t remaining = tiff_output->buf->size() - tiff_output->pos;
+    PA_long32 len = size > remaining ? remaining : size;
+    
+    if(len)
+    {
+        uint8_t *ptr = (uint8_t *)(&tiff_output->buf->at(tiff_output->pos));
+        memcpy(buf, ptr, len);
+        tiff_output->pos += len;
+    }
+    
+    return (tsize_t)len;
+};
+
+#define    CopyField(tag, v) \
+if (TIFFGetField(in, tag, &v)) TIFFSetField(out, tag, v)
+#define    CopyField2(tag, v1, v2) \
+if (TIFFGetField(in, tag, &v1, &v2)) TIFFSetField(out, tag, v1, v2)
+#define    CopyField3(tag, v1, v2, v3) \
+if (TIFFGetField(in, tag, &v1, &v2, &v3)) TIFFSetField(out, tag, v1, v2, v3)
+
+int
+cpStrips(TIFF* in, TIFF* out)
+{
+    tmsize_t bufsize  = TIFFStripSize(in);
+    unsigned char *buf = (unsigned char *)_TIFFmalloc(bufsize);
+    
+    if (buf) {
+        tstrip_t s, ns = TIFFNumberOfStrips(in);
+        uint64 *bytecounts;
+        
+        if (!TIFFGetField(in, TIFFTAG_STRIPBYTECOUNTS, &bytecounts)) {
+            fprintf(stderr, "tiffsplit: strip byte counts are missing\n");
+            _TIFFfree(buf);
+            return (0);
+        }
+        for (s = 0; s < ns; s++) {
+            if (bytecounts[s] > (uint64)bufsize) {
+                buf = (unsigned char *)_TIFFrealloc(buf, (tmsize_t)bytecounts[s]);
+                if (!buf)
+                    return (0);
+                bufsize = (tmsize_t)bytecounts[s];
+            }
+            if (TIFFReadRawStrip(in, s, buf, (tmsize_t)bytecounts[s]) < 0 ||
+                    TIFFWriteRawStrip(out, s, buf, (tmsize_t)bytecounts[s]) < 0) {
+                _TIFFfree(buf);
+                return (0);
+            }
+        }
+        _TIFFfree(buf);
+        return (1);
+    }
+    return (0);
+}
+
+int
+cpTiles(TIFF* in, TIFF* out)
+{
+    tmsize_t bufsize = TIFFTileSize(in);
+    unsigned char *buf = (unsigned char *)_TIFFmalloc(bufsize);
+    
+    if (buf) {
+        ttile_t t, nt = TIFFNumberOfTiles(in);
+        uint64 *bytecounts;
+        
+        if (!TIFFGetField(in, TIFFTAG_TILEBYTECOUNTS, &bytecounts)) {
+            fprintf(stderr, "tiffsplit: tile byte counts are missing\n");
+            _TIFFfree(buf);
+            return (0);
+        }
+        for (t = 0; t < nt; t++) {
+            if (bytecounts[t] > (uint64) bufsize) {
+                buf = (unsigned char *)_TIFFrealloc(buf, (tmsize_t)bytecounts[t]);
+                if (!buf)
+                    return (0);
+                bufsize = (tmsize_t)bytecounts[t];
+            }
+            if (TIFFReadRawTile(in, t, buf, (tmsize_t)bytecounts[t]) < 0 ||
+                    TIFFWriteRawTile(out, t, buf, (tmsize_t)bytecounts[t]) < 0) {
+                _TIFFfree(buf);
+                return (0);
+            }
+        }
+        _TIFFfree(buf);
+        return (1);
+    }
+    return (0);
+}
+
+int
+tiffcp(TIFF* in, TIFF* out)
+{
+    uint16 bitspersample, samplesperpixel, compression, shortv, *shortav;
+    uint32 w, l;
+    float floatv;
+    char *stringv;
+    uint32 longv;
+    
+    CopyField(TIFFTAG_SUBFILETYPE, longv);
+    CopyField(TIFFTAG_TILEWIDTH, w);
+    CopyField(TIFFTAG_TILELENGTH, l);
+    CopyField(TIFFTAG_IMAGEWIDTH, w);
+    CopyField(TIFFTAG_IMAGELENGTH, l);
+    CopyField(TIFFTAG_BITSPERSAMPLE, bitspersample);
+    CopyField(TIFFTAG_SAMPLESPERPIXEL, samplesperpixel);
+    CopyField(TIFFTAG_COMPRESSION, compression);
+    if (compression == COMPRESSION_JPEG) {
+        uint32 count = 0;
+        void *table = NULL;
+        if (TIFFGetField(in, TIFFTAG_JPEGTABLES, &count, &table)
+                && count > 0 && table) {
+            TIFFSetField(out, TIFFTAG_JPEGTABLES, count, table);
+        }
+    }
+    CopyField(TIFFTAG_PHOTOMETRIC, shortv);
+    CopyField(TIFFTAG_PREDICTOR, shortv);
+    CopyField(TIFFTAG_THRESHHOLDING, shortv);
+    CopyField(TIFFTAG_FILLORDER, shortv);
+    CopyField(TIFFTAG_ORIENTATION, shortv);
+    CopyField(TIFFTAG_MINSAMPLEVALUE, shortv);
+    CopyField(TIFFTAG_MAXSAMPLEVALUE, shortv);
+    CopyField(TIFFTAG_XRESOLUTION, floatv);
+    CopyField(TIFFTAG_YRESOLUTION, floatv);
+    CopyField(TIFFTAG_GROUP3OPTIONS, longv);
+    CopyField(TIFFTAG_GROUP4OPTIONS, longv);
+    CopyField(TIFFTAG_RESOLUTIONUNIT, shortv);
+    CopyField(TIFFTAG_PLANARCONFIG, shortv);
+    CopyField(TIFFTAG_ROWSPERSTRIP, longv);
+    CopyField(TIFFTAG_XPOSITION, floatv);
+    CopyField(TIFFTAG_YPOSITION, floatv);
+    CopyField(TIFFTAG_IMAGEDEPTH, longv);
+    CopyField(TIFFTAG_TILEDEPTH, longv);
+    CopyField(TIFFTAG_SAMPLEFORMAT, shortv);
+    CopyField2(TIFFTAG_EXTRASAMPLES, shortv, shortav);
+    { uint16 *red, *green, *blue;
+        CopyField3(TIFFTAG_COLORMAP, red, green, blue);
+    }
+    { uint16 shortv2;
+        CopyField2(TIFFTAG_PAGENUMBER, shortv, shortv2);
+    }
+    CopyField(TIFFTAG_ARTIST, stringv);
+    CopyField(TIFFTAG_IMAGEDESCRIPTION, stringv);
+    CopyField(TIFFTAG_MAKE, stringv);
+    CopyField(TIFFTAG_MODEL, stringv);
+    CopyField(TIFFTAG_SOFTWARE, stringv);
+    CopyField(TIFFTAG_DATETIME, stringv);
+    CopyField(TIFFTAG_HOSTCOMPUTER, stringv);
+    CopyField(TIFFTAG_PAGENAME, stringv);
+    CopyField(TIFFTAG_DOCUMENTNAME, stringv);
+    CopyField(TIFFTAG_BADFAXLINES, longv);
+    CopyField(TIFFTAG_CLEANFAXDATA, longv);
+    CopyField(TIFFTAG_CONSECUTIVEBADFAXLINES, longv);
+    CopyField(TIFFTAG_FAXRECVPARAMS, longv);
+    CopyField(TIFFTAG_FAXRECVTIME, longv);
+    CopyField(TIFFTAG_FAXSUBADDRESS, stringv);
+    CopyField(TIFFTAG_FAXDCS, stringv);
+    if (TIFFIsTiled(in))
+        return (cpTiles(in, out));
+    else
+        return (cpStrips(in, out));
+}
+
+static int get_page_count(TIFF *tiff)
+{
+    int count = 0;
+    
+    do
+    {
+        count++;
+    } while (TIFFReadDirectory(tiff));
+    
+    return count;
+}
+
 #define cmd_current_form_window 827
 
 void Continuity_camera_menu(PA_PluginParameters params) {
@@ -241,9 +539,73 @@ void Continuity_camera_menu(PA_PluginParameters params) {
     if(gottenImage) {
         
         ob_set_b(returnValue, L"success", true);
+        
+        PA_CollectionRef images = PA_CreateCollection();
+        
         NSData *data = [gottenImage TIFFRepresentation];
-        PA_Picture image = PA_CreatePicture((void *)[data bytes], (PA_long32)[data length]);
-        ob_set_p(returnValue, L"image", image);
+        
+        TIFF *tiff = 0;
+        tiff_src tiff_input;
+        
+        tiff_input.ptr = (const uint8_t *)[data bytes];
+        tiff_input.len = [data length];
+        tiff_input.pos = 0;
+        
+        tiff = TIFFClientOpen(
+                              "tiff_in",
+                              "r",
+                              (thandle_t)&tiff_input,
+                              tiff_Read,
+                              tiff_Write,
+                              tiff_ReadSeek,
+                              tiff_Close,
+                              tiff_ReadSize,
+                              tiff_Map,
+                              tiff_Unmap);
+        
+        if(tiff)
+        {
+            int src_count_pages = get_page_count(tiff);
+
+            for (int dir = 0; dir < src_count_pages;++dir)
+            {
+                TIFFSetDirectory(tiff, dir);
+                
+                std::vector<uint8_t> buf(0);
+                tiff_dst tiff_output;
+                tiff_output.pos = 0;
+                tiff_output.buf = &buf;
+                
+                TIFF *page = TIFFClientOpen(
+                                            "tiff_out",
+                                            TIFFIsBigEndian(tiff) ? "wb" : "wl",
+                                            (thandle_t)&tiff_output,
+                                            tiff_WriteRead,
+                                            tiff_Write,
+                                            tiff_WriteSeek,
+                                            tiff_Close,
+                                            tiff_WriteSize,
+                                            tiff_Map,
+                                            tiff_Unmap);
+                
+                if(page)
+                {
+                    tiffcp(tiff, page);
+
+                    TIFFClose(page);
+                    
+                    PA_Picture image = PA_CreatePicture((void *)&buf[0], (PA_long32)buf.size());
+                    PA_Variable v = PA_CreateVariable(eVK_Picture);
+                    PA_SetPictureVariable(&v, image);
+                    PA_SetCollectionElement(images, PA_GetCollectionLength(images), v);
+                    
+                }
+            }
+            TIFFClose(tiff);
+        }//tiff
+        
+        ob_set_c(returnValue, L"images", images);
+        
         [gottenImage release];
     }
 

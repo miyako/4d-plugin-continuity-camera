@@ -1,1 +1,11 @@
-﻿[]
+[
+	{
+		"line": 10,
+		"method": {
+			"type": 2,
+			"formName": "TEST",
+			"objectName": "Button",
+			"methodPath": "/SOURCES/Forms/TEST/ObjectMethods/Button.4dm"
+		}
+	}
+]
