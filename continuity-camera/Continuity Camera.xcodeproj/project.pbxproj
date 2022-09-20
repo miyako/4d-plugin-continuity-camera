@@ -12,7 +12,7 @@
 		18B684F906944F2000CC6A1E /* Flags.h in Headers */ = {isa = PBXBuildFile; fileRef = 18B684F206944F2000CC6A1E /* Flags.h */; };
 		18B684FA06944F2000CC6A1E /* PrivateTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 18B684F306944F2000CC6A1E /* PrivateTypes.h */; };
 		18B684FB06944F2000CC6A1E /* PublicTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 18B684F406944F2000CC6A1E /* PublicTypes.h */; };
-		18B684FF06944F8800CC6A1E /* 4DPlugin-Continuity-Camera.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 18B684FE06944F8800CC6A1E /* 4DPlugin-Continuity-Camera.cpp */; };
+		18B684FF06944F8800CC6A1E /* 4DPlugin-Continuity-Camera.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 18B684FE06944F8800CC6A1E /* 4DPlugin-Continuity-Camera.cpp */; settings = {COMPILER_FLAGS = "-Wno-deprecated-declarations"; }; };
 		8D01CCCA0486CAD60068D4B7 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C167DFE841241C02AAC07 /* InfoPlist.strings */; };
 		D120937F13534DCC00A72CAA /* 4DPlugin-Continuity-Camera.h in Headers */ = {isa = PBXBuildFile; fileRef = D120937E13534DCC00A72CAA /* 4DPlugin-Continuity-Camera.h */; };
 		D130064F12F02D9700702C0E /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D130064E12F02D9700702C0E /* Cocoa.framework */; };
@@ -331,7 +331,7 @@
 				);
 				LIBRARY_STYLE = Bundle;
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 2.0.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -383,7 +383,7 @@
 				);
 				LIBRARY_STYLE = Bundle;
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 2.0.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -433,7 +433,7 @@
 				);
 				LIBRARY_STYLE = Bundle;
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 2.0.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

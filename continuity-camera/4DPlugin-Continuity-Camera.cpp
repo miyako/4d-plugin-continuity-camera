@@ -92,7 +92,8 @@ typedef struct {
 }continuity_camera_menu_ctx;
 
 static NSImage *gottenImage;
-    
+static NSData *gottenDocument;
+
 @interface CCView : NSView <NSServicesMenuRequestor>
 {
     
@@ -139,6 +140,10 @@ static NSImage *gottenImage;
 }
 - (BOOL)readSelectionFromPasteboard:(NSPasteboard *)pboard;
 {
+    if([pboard canReadItemWithDataConformingToTypes:@[NSPasteboardTypePDF]]) {
+        gottenDocument = [[NSData alloc]initWithData:[pboard dataForType:NSPasteboardTypePDF]];
+    }
+
     if([pboard canReadItemWithDataConformingToTypes:[NSImage imageTypes]]) {
         gottenImage = [[NSImage alloc]initWithPasteboard:pboard];
         return true;
@@ -503,6 +508,7 @@ void Continuity_camera_menu(PA_PluginParameters params) {
     PA_ObjectRef options = PA_GetObjectParameter(params, 1);
     
     gottenImage = nil;
+    gottenDocument = nil;
     
     if(options) {
         CUTF16String _title;
@@ -535,6 +541,16 @@ void Continuity_camera_menu(PA_PluginParameters params) {
     
     PA_ObjectRef returnValue = PA_CreateObject();
     ob_set_b(returnValue, L"success", false);
+    
+    if(gottenDocument) {
+        
+        ob_set_b(returnValue, L"success", true);
+        
+        PA_Picture image = PA_CreatePicture((void *)[gottenDocument bytes], (PA_long32)[gottenDocument length]);
+        ob_set_p(returnValue, L"document", image);
+        
+        [gottenDocument release];
+    }
     
     if(gottenImage) {
         

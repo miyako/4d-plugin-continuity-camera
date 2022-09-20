@@ -16,4 +16,13 @@ If ($status.success)
 		Form:C1466.image:=Form:C1466.image/$image
 	End for each 
 	
+	If ($status.document#Null:C1517)
+		$folder:=Folder:C1567(Temporary folder:C486; fk platform path:K87:2).folder(Generate UUID:C1066)
+		$folder.create()
+		$file:=$folder.file("scan.pdf")
+		PICTURE TO BLOB:C692($status.document; $data; ".pdf")
+		$file.setContent($data)
+		SHOW ON DISK:C922($file.platformPath)
+	End if 
+	
 End if 
