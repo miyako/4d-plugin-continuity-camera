@@ -1,7 +1,7 @@
 # 4d-plugin-continuity-camera
 Invoke macOS 10.14 Continuity Camera feature for image import
 
-![version](https://img.shields.io/badge/version-18%2B-EB8E5F)
+![version](https://img.shields.io/badge/version-19%2B-5682DF)
 ![platform](https://img.shields.io/static/v1?label=platform&message=mac-intel%20|%20mac-arm&color=blue)
 [![license](https://img.shields.io/github/license/miyako/4d-plugin-continuity-camera)](LICENSE)
 ![downloads](https://img.shields.io/github/downloads/miyako/4d-plugin-continuity-camera/total)
