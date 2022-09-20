@@ -12,7 +12,7 @@ new `status` object:
 
 * status.success: boolean
 * status.document: picture (PDF document, if available)
-* status.images[]: collection of pictures, typically in 3 resolutions
+* status.images[]: collection of TIFF pictures, typically in 3 resolutions
 
 
 ### Example
