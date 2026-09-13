@@ -561,10 +561,10 @@ void Continuity_camera_menu(PA_PluginParameters params) {
         PA_ObjectRef options = PA_GetObjectParameter(params, 1);
 
         if(options) {
-            CUTF16String _title;
+            CUTF8String _title;
             NSString *title;
             if(ob_get_a(options, L"title", &_title)) {
-                title = [[NSString alloc]initWithCharacters:(const unichar *)_title.data() length:(NSUInteger)_title.length()];
+                title = [[NSString alloc]initWithUTF8String:(const char *)_title.data() length:(NSUInteger)_title.length()];
             }else{
                 title = @"Contextual Menu";
             }
