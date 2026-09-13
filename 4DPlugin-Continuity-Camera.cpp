@@ -88,15 +88,26 @@ typedef struct {
     CGFloat x;
     CGFloat y;
     NSWindow *window;
+    NSImage *image;      // out param: caller owns this (+1) once doIt() returns
+    NSData *document;    // out param: caller owns this (+1) once doIt() returns
     
 }continuity_camera_menu_ctx;
 
-static NSImage *gottenImage;
-static NSData *gottenDocument;
+// NOTE: the two objects captured from the pasteboard are now stored as ivars on
+// the CCView instance that requested them, and handed back to the caller through
+// continuity_camera_menu_ctx (see doIt() below), instead of living in file-scope
+// statics. File-scope statics here were shared, mutable, plugin-wide state with
+// no locking: if 4D ever invokes this command from more than one process at the
+// same time, two overlapping calls would race on the same two pointers (one
+// call's reset/release could clobber or free what a concurrent call was about
+// to read). Scoping the data to the call removes the race entirely rather than
+// just narrowing it.
 
 @interface CCView : NSView <NSServicesMenuRequestor>
 {
-    
+    @public
+    NSData *capturedDocument;
+    NSImage *capturedImage;
 }
 
 @end
@@ -106,7 +117,10 @@ static NSData *gottenDocument;
 - (id)initWithWindow:(NSWindow *)window
 {
     if(!(self = [super init])) return self;
-        
+    
+    capturedDocument = nil;
+    capturedImage = nil;
+    
     [window.contentView addSubview:self];
     
     return self;
@@ -114,6 +128,9 @@ static NSData *gottenDocument;
 
 - (void)dealloc
 {
+    [capturedDocument release];
+    [capturedImage release];
+    
     [self removeFromSuperview];
     
     [super dealloc];
@@ -141,11 +158,11 @@ static NSData *gottenDocument;
 - (BOOL)readSelectionFromPasteboard:(NSPasteboard *)pboard;
 {
     if([pboard canReadItemWithDataConformingToTypes:@[NSPasteboardTypePDF]]) {
-        gottenDocument = [[NSData alloc]initWithData:[pboard dataForType:NSPasteboardTypePDF]];
+        capturedDocument = [[NSData alloc]initWithData:[pboard dataForType:NSPasteboardTypePDF]];
     }
 
     if([pboard canReadItemWithDataConformingToTypes:[NSImage imageTypes]]) {
-        gottenImage = [[NSImage alloc]initWithPasteboard:pboard];
+        capturedImage = [[NSImage alloc]initWithPasteboard:pboard];
         return true;
     }
     
@@ -155,6 +172,17 @@ static NSData *gottenDocument;
 @end
 
 static void doIt(continuity_camera_menu_ctx *ctx) {
+
+    ctx->image = nil;
+    ctx->document = nil;
+
+    if(!ctx->window) {
+        // PA_GetWindowPtr resolved to no window (invalid/stale window reference).
+        // Bail out rather than messaging a nil NSWindow for a struct-returning
+        // property (.bounds) below, which isn't guaranteed to be safely zeroed
+        // on every architecture the way an id/BOOL-returning message to nil is.
+        return;
+    }
 
     NSPoint clickPoint = NSMakePoint(ctx->x, ctx->window.contentView.bounds.size.height - ctx->y);
     
@@ -196,6 +224,19 @@ static void doIt(continuity_camera_menu_ctx *ctx) {
         [sender.window makeFirstResponder:sender.window];
         [swizzle_XMacNSView_saisierec release];
 
+        // Hand ownership of anything the pasteboard callback captured back to
+        // the caller before sender (and its ivars) go away.
+        ctx->image = sender->capturedImage;
+        ctx->document = sender->capturedDocument;
+        sender->capturedImage = nil;
+        sender->capturedDocument = nil;
+
+        // -addSubview: retains sender, so a single -release here only brings
+        // the retain count from 2 back to 1 — dealloc (and therefore
+        // -removeFromSuperview) would never run, permanently leaking this view
+        // as a subview of the window's contentView. Remove it from the
+        // hierarchy explicitly first so the final release actually reaches 0.
+        [sender removeFromSuperview];
         [sender release];
         [menu release];
         
@@ -505,124 +546,147 @@ static int get_page_count(TIFF *tiff)
 
 void Continuity_camera_menu(PA_PluginParameters params) {
 
-    PA_ObjectRef options = PA_GetObjectParameter(params, 1);
-    
-    gottenImage = nil;
-    gottenDocument = nil;
-    
-    if(options) {
-        CUTF16String _title;
-        NSString *title;
-        if(ob_get_a(options, L"title", &_title)) {
-            title = [[NSString alloc]initWithCharacters:(const unichar *)_title.data() length:(NSUInteger)_title.length()];
-        }else{
-            title = @"Contextual Menu";
-        }
-        
-        CGFloat x = ob_get_n(options, L"x");
-        CGFloat y = ob_get_n(options, L"y");
-        
-        PA_long32 window;
-        if(ob_is_defined(options, L"window")) {
-            window = ob_get_n(options, L"window");
-        }else{
-            window = PA_GetLongintVariable(PA_ExecuteCommandByID(cmd_current_form_window, NULL, 0));
-        }
-
-        continuity_camera_menu_ctx ctx;
-        ctx.title = title;
-        ctx.x = x;
-        ctx.y = y;
-        ctx.window = (NSWindow *)PA_GetWindowPtr(reinterpret_cast<NSWindow *>(window));
-        
-        PA_RunInMainProcess((PA_RunInMainProcessProcPtr)doIt, &ctx);
-        
-    }
-    
     PA_ObjectRef returnValue = PA_CreateObject();
     ob_set_b(returnValue, L"success", false);
-    
-    if(gottenDocument) {
-        
-        ob_set_b(returnValue, L"success", true);
-        
-        PA_Picture image = PA_CreatePicture((void *)[gottenDocument bytes], (PA_long32)[gottenDocument length]);
-        ob_set_p(returnValue, L"document", image);
-        
-        [gottenDocument release];
-    }
-    
-    if(gottenImage) {
-        
-        ob_set_b(returnValue, L"success", true);
-        
-        PA_CollectionRef images = PA_CreateCollection();
-        
-        NSData *data = [gottenImage TIFFRepresentation];
-        
-        TIFF *tiff = 0;
-        tiff_src tiff_input;
-        
-        tiff_input.ptr = (const uint8_t *)[data bytes];
-        tiff_input.len = [data length];
-        tiff_input.pos = 0;
-        
-        tiff = TIFFClientOpen(
-                              "tiff_in",
-                              "r",
-                              (thandle_t)&tiff_input,
-                              tiff_Read,
-                              tiff_Write,
-                              tiff_ReadSeek,
-                              tiff_Close,
-                              tiff_ReadSize,
-                              tiff_Map,
-                              tiff_Unmap);
-        
-        if(tiff)
-        {
-            int src_count_pages = get_page_count(tiff);
 
-            for (int dir = 0; dir < src_count_pages;++dir)
-            {
-                TIFFSetDirectory(tiff, dir);
-                
-                std::vector<uint8_t> buf(0);
-                tiff_dst tiff_output;
-                tiff_output.pos = 0;
-                tiff_output.buf = &buf;
-                
-                TIFF *page = TIFFClientOpen(
-                                            "tiff_out",
-                                            TIFFIsBigEndian(tiff) ? "wb" : "wl",
-                                            (thandle_t)&tiff_output,
-                                            tiff_WriteRead,
-                                            tiff_Write,
-                                            tiff_WriteSeek,
-                                            tiff_Close,
-                                            tiff_WriteSize,
-                                            tiff_Map,
-                                            tiff_Unmap);
-                
-                if(page)
-                {
-                    tiffcp(tiff, page);
+    // Everything that can plausibly throw (Cocoa calls, libtiff via
+    // TIFFClientOpen/tiffcp, std::vector allocation) is wrapped here so that,
+    // whatever happens, PA_ReturnObject below is still reached. Previously
+    // this work ran between PluginMain's outer try and its single
+    // PA_ReturnObject call; an exception anywhere in it was swallowed by
+    // PluginMain's catch(...) with no return value ever sent back, which
+    // would leave the calling 4D method hanging rather than erroring out.
+    try
+    {
+        PA_ObjectRef options = PA_GetObjectParameter(params, 1);
 
-                    TIFFClose(page);
-                    
-                    PA_Picture image = PA_CreatePicture((void *)&buf[0], (PA_long32)buf.size());
-                    PA_Variable v = PA_CreateVariable(eVK_Picture);
-                    PA_SetPictureVariable(&v, image);
-                    PA_SetCollectionElement(images, PA_GetCollectionLength(images), v);
-                    
-                }
+        if(options) {
+            CUTF16String _title;
+            NSString *title;
+            if(ob_get_a(options, L"title", &_title)) {
+                title = [[NSString alloc]initWithCharacters:(const unichar *)_title.data() length:(NSUInteger)_title.length()];
+            }else{
+                title = @"Contextual Menu";
             }
-            TIFFClose(tiff);
-        }//tiff
-        
-        ob_set_c(returnValue, L"images", images);
-        
-        [gottenImage release];
+
+            CGFloat x = ob_get_n(options, L"x");
+            CGFloat y = ob_get_n(options, L"y");
+
+            PA_long32 window;
+            if(ob_is_defined(options, L"window")) {
+                window = ob_get_n(options, L"window");
+            }else{
+                window = PA_GetLongintVariable(PA_ExecuteCommandByID(cmd_current_form_window, NULL, 0));
+            }
+
+            continuity_camera_menu_ctx ctx;
+            ctx.title = title;
+            ctx.x = x;
+            ctx.y = y;
+            ctx.window = (NSWindow *)PA_GetWindowPtr(reinterpret_cast<NSWindow *>(window));
+            ctx.image = nil;
+            ctx.document = nil;
+
+            PA_RunInMainProcess((PA_RunInMainProcessProcPtr)doIt, &ctx);
+
+            if(ctx.document) {
+
+                ob_set_b(returnValue, L"success", true);
+
+                PA_Picture image = PA_CreatePicture((void *)[ctx.document bytes], (PA_long32)[ctx.document length]);
+                ob_set_p(returnValue, L"document", image);
+
+                [ctx.document release];
+            }
+
+            if(ctx.image) {
+
+                ob_set_b(returnValue, L"success", true);
+
+                PA_CollectionRef images = PA_CreateCollection();
+
+                NSData *data = [ctx.image TIFFRepresentation];
+
+                TIFF *tiff = 0;
+                tiff_src tiff_input;
+
+                tiff_input.ptr = (const uint8_t *)[data bytes];
+                tiff_input.len = [data length];
+                tiff_input.pos = 0;
+
+                tiff = TIFFClientOpen(
+                                      "tiff_in",
+                                      "r",
+                                      (thandle_t)&tiff_input,
+                                      tiff_Read,
+                                      tiff_Write,
+                                      tiff_ReadSeek,
+                                      tiff_Close,
+                                      tiff_ReadSize,
+                                      tiff_Map,
+                                      tiff_Unmap);
+
+                if(tiff)
+                {
+                    int src_count_pages = get_page_count(tiff);
+
+                    for (int dir = 0; dir < src_count_pages;++dir)
+                    {
+                        TIFFSetDirectory(tiff, dir);
+
+                        std::vector<uint8_t> buf(0);
+                        tiff_dst tiff_output;
+                        tiff_output.pos = 0;
+                        tiff_output.buf = &buf;
+
+                        TIFF *page = TIFFClientOpen(
+                                                    "tiff_out",
+                                                    TIFFIsBigEndian(tiff) ? "wb" : "wl",
+                                                    (thandle_t)&tiff_output,
+                                                    tiff_WriteRead,
+                                                    tiff_Write,
+                                                    tiff_WriteSeek,
+                                                    tiff_Close,
+                                                    tiff_WriteSize,
+                                                    tiff_Map,
+                                                    tiff_Unmap);
+
+                        if(page)
+                        {
+                            int copied = tiffcp(tiff, page);
+
+                            TIFFClose(page);
+
+                            // tiffcp() returns 0 (e.g. missing strip/tile byte counts)
+                            // without writing anything to buf in that case. buf[0] on
+                            // an empty vector is undefined behavior, not a safe no-op,
+                            // so skip this page rather than indexing unconditionally.
+                            if(copied && !buf.empty())
+                            {
+                                PA_Picture image = PA_CreatePicture((void *)buf.data(), (PA_long32)buf.size());
+                                PA_Variable v = PA_CreateVariable(eVK_Picture);
+                                PA_SetPictureVariable(&v, image);
+                                PA_SetCollectionElement(images, PA_GetCollectionLength(images), v);
+                            }
+
+                        }
+                    }
+                    TIFFClose(tiff);
+                }//tiff
+
+                ob_set_c(returnValue, L"images", images);
+
+                [ctx.image release];
+            } // if(ctx.image)
+        } // if(options)
+    }
+    catch(...)
+    {
+        // Whatever went wrong, still return a well-formed object rather than
+        // letting PluginMain's outer catch(...) swallow this silently with no
+        // PA_ReturnObject call — that would freeze the calling 4D process
+        // instead of surfacing a clean success:false result.
+        ob_set_b(returnValue, L"success", false);
     }
 
     PA_ReturnObject(params, returnValue);
