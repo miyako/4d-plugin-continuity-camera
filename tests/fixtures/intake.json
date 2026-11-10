@@ -1,0 +1,51 @@
+{
+  "repository": "miyako/4d-plugin-continuity-camera",
+  "repository_id": 402668187,
+  "default_branch": "main",
+  "sha": "014963d3c6c3ab23a8406b108fed3dee27836812",
+  "workflow_header_commit": "d90755699b187eaee14392043d0f37efc3ed27e7",
+  "workflow_header_blob": "b25f7db9575eedbae997c08ca5da53d7145bb85f",
+  "source": {
+    "Continuity Camera.xcodeproj/project.pbxproj": {
+      "blob": "a31e8105d0a09696c1ac9a1579e2daf545152c56",
+      "mode": "100644",
+      "marketing_count": 6,
+      "marketing": "2.0.3",
+      "current_count": 6,
+      "current": "2.0.0"
+    },
+    "Info.plist": {
+      "blob": "7ffa7f333202865dc8b3bc8c72044d34ed427982",
+      "mode": "100644",
+      "short": "$(MARKETING_VERSION)",
+      "build": null
+    },
+    "English.lproj/InfoPlist.strings": {
+      "blob": "6a55d03bd4a14c9a032520a13ff3adfef4d4e068",
+      "mode": "100644",
+      "short": "2.0.0",
+      "info_version": "2.0.0",
+      "copyright": 2022,
+      "encoding": "utf-8",
+      "separators": "CR",
+      "terminal_CR": true,
+      "LF_bytes": 0
+    }
+  },
+  "localized_history": [
+    "fdfc95581f376ba76b978849b3b69253b2a3dbc9",
+    "ee46f7810e2d07effde07bb5b16e83b5fd7ed4dc"
+  ],
+  "native_default_evidence": {
+    "run": 36969811983,
+    "job": 110721260457,
+    "step": 5,
+    "head": "014963d3c6c3ab23a8406b108fed3dee27836812",
+    "native_step_sha256": "83f893c6e9d99df8bb50733340d46828a4de9ff559f91ab51d60f8a89497ba51",
+    "objroot": "test/Plugins",
+    "project_temp_dir": "test/Plugins/Continuity Camera.build",
+    "target_temp_dir": "test/Plugins/Continuity Camera.build/Default/Continuity Camera.build",
+    "description": "test/Plugins/XCBuildData/18f1743d023ceab53a1b25a03d4e7383.xcbuilddata",
+    "credential_steps_included": false
+  }
+}
