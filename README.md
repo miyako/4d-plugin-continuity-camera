@@ -169,3 +169,7 @@ If ($status.success)
 	End if 
 End if 
 ```
+# Release workflows
+
+Source-only **Bump version** and zero-input **Build** are independent manual
+actions. See [the release and recovery guide](.github/README.md).
